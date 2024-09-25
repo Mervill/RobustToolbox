@@ -10,6 +10,11 @@ namespace Weavers
 {
     public class ModuleWeaver : BaseModuleWeaver
     {
+        const string TracyProfilerFullName = "Robust.Shared.Profiling.TracyProfiler";
+        const string TracyProfilerBeginZoneFullName = "Robust.Shared.Profiling.TracyZone Robust.Shared.Profiling.TracyProfiler::BeginZone(System.String,System.Boolean,System.UInt32,System.String,System.UInt32,System.String,System.String)";
+
+        MethodDefinition BeginZoneMethodDef;
+
         public override void Execute()
         {
             /*
@@ -22,7 +27,11 @@ namespace Weavers
             ModuleDefinition.Types.Add(typeDefinition);
             */
 
-            foreach(var typeDef in ModuleDefinition.GetTypes())
+            var profilerType = ModuleDefinition.GetAllTypes().First(x => x.Name == "TracyProfiler");
+            var beginZone = profilerType.Methods.First(x => x.Name == "BeginZone");
+            BeginZoneMethodDef = beginZone;
+
+            foreach (var typeDef in ModuleDefinition.GetTypes())
             {
                 if (!typeDef.IsClass)
                     continue;
@@ -76,8 +85,10 @@ namespace Weavers
 
             var methodBody = methodDef.Body;
             var instructions = methodBody.Instructions;
+            */
 
             // prologue
+            
             Instruction[] prologue = new[]
             {
                 // zone name
@@ -89,17 +100,15 @@ namespace Weavers
                 // text
                 Instruction.Create(OpCodes.Ldnull),
                 // lineNumber
-                Instruction.Create(OpCodes.Ldc_I4_S, methodLineNumber),
+                Instruction.Create(OpCodes.Ldc_I4, methodLineNumber),
                 // filePath
                 Instruction.Create(OpCodes.Ldstr, methodFilename),
                 // memberName
                 Instruction.Create(OpCodes.Ldstr, methodDef.FullName),
                 // call Robust.Shared.Profiling.TracyProfiler.BeginZone
-                Instruction.Create(OpCodes.Call, beginZoneMethodRef),
-
+                Instruction.Create(OpCodes.Call, BeginZoneMethodDef),
             };
-            */
-
+            
             var methodBody = methodDef.Body;
             var instructions = methodBody.Instructions;
 
@@ -107,8 +116,9 @@ namespace Weavers
             var leave = Instruction.Create(OpCodes.Leave_S, ret);
             var endFinally = Instruction.Create(OpCodes.Endfinally);
             var writeLine = Instruction.Create(OpCodes.Call, methodRef);
-            var loadString = Instruction.Create(OpCodes.Ldstr, methodFilename);
-            
+            //var loadString = Instruction.Create(OpCodes.Ldstr, methodFilename);
+            var loadString = Instruction.Create(OpCodes.Ldstr, BeginZoneMethodDef.FullName);
+
             var index = 0;
             while (true)
             {
