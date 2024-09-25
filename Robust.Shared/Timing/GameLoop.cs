@@ -142,6 +142,8 @@ namespace Robust.Shared.Timing
 
             while (Running)
             {
+                var runZone = TracyProfiler.BeginZone(memberName: "Robust::Shared::Timing::GameLoop::Run");
+
                 var profFrameStart = _prof.WriteValue(ProfTextStartFrame, ProfData.Int64(_timing.CurFrame));
                 var profFrameGroupStart = _prof.WriteGroupStart();
                 var profFrameSw = ProfSampler.StartNew();
@@ -223,7 +225,7 @@ namespace Robust.Shared.Timing
 #endif
                         GameLoopEventSource.Log.TickStart(_timing.CurTick.Value);
 
-                        using var tickGroup = _prof.Group("Tick");
+                        using var _ = _prof.Group("Tick");
                         _prof.WriteValue("Tick", ProfData.Int64(_timing.CurTick.Value));
 
                         // System.Console.WriteLine($"Tick started at: {_timing.RealTime - _timing.LastTick}");
@@ -302,10 +304,9 @@ namespace Robust.Shared.Timing
                 try
 #endif
                 {
-                    using (_prof.Group("Render"))
-                    {
-                        Render?.Invoke(this, realFrameEvent);
-                    }
+                    using var _ = _prof.Group("Render");
+
+                    Render?.Invoke(this, realFrameEvent);
                 }
 #if EXCEPTION_TOLERANCE
                 catch (Exception exp)
@@ -315,7 +316,7 @@ namespace Robust.Shared.Timing
 #endif
 
                 {
-                    using var gc = _prof.Group("GC Overview");
+                    using var _ = _prof.Group("GC Overview");
 
                     _prof.WriteValue("Gen 0 Count", ProfData.Int32(GC.CollectionCount(0) - profFrameGcGen0));
                     _prof.WriteValue("Gen 1 Count", ProfData.Int32(GC.CollectionCount(1) - profFrameGcGen1));
@@ -326,6 +327,7 @@ namespace Robust.Shared.Timing
                 _prof.MarkIndex(profFrameStart, ProfIndexType.Frame);
 
                 GameLoopEventSource.Log.SleepStart();
+                var sleepZone = TracyProfiler.BeginZone("Sleep", color: 0x708090);
 
                 // Set sleep to 1 if you want to be nice and give the rest of the timeslice up to the os scheduler.
                 // Set sleep to 0 if you want to use 100% cpu, but still cooperate with the scheduler.
@@ -349,7 +351,11 @@ namespace Robust.Shared.Timing
                         break;
                 }
 
+                sleepZone.Dispose();
                 GameLoopEventSource.Log.SleepStop();
+                
+                runZone.Dispose();
+                TracyProfiler.EmitFrameMark();
             }
         }
     }
