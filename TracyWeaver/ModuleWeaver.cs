@@ -4,6 +4,7 @@ using System.Linq;
 using Fody;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
+using Mono.Cecil.Rocks;
 
 namespace Weavers
 {
@@ -54,48 +55,81 @@ namespace Weavers
                 return;
 
             var methodSequencePoint = methodDef.GetSequencePoint();
-            var methodFilename = "NoSource";
             var methodLineNumber = 0;
-
+            var methodFilename = "NoSource";
+            
             if (methodSequencePoint != null)
             {
-                methodFilename = methodSequencePoint.Document.Url;
                 methodLineNumber = methodSequencePoint.StartLine;
+                methodFilename = methodSequencePoint.Document.Url;
             }
 
             var methodRef = ModuleDefinition.ImportReference(typeof(Console).GetMethod("WriteLine", new[] { typeof(string) }));
 
-            //var il = methodDef.Body.GetILProcessor();
-            var instructionCollection = methodDef.Body.Instructions;
+            /*
+            ModuleDefinition.TryGetTypeReference("Robust.Shared.Profiling.TracyProfiler", out var tracyProfilerRef);
+            var beginZoneMethodDef = tracyProfilerRef.Resolve()
+                .GetMethods()
+                .First(x => x.Name == "BeginZone");
+
+            var beginZoneMethodRef = ModuleDefinition.ImportReference(beginZoneMethodDef);
+
+            var methodBody = methodDef.Body;
+            var instructions = methodBody.Instructions;
+
+            // prologue
+            Instruction[] prologue = new[]
+            {
+                // zone name
+                Instruction.Create(OpCodes.Ldnull),
+                // active
+                Instruction.Create(OpCodes.Ldc_I4_1),
+                // color
+                Instruction.Create(OpCodes.Ldc_I4_0),
+                // text
+                Instruction.Create(OpCodes.Ldnull),
+                // lineNumber
+                Instruction.Create(OpCodes.Ldc_I4_S, methodLineNumber),
+                // filePath
+                Instruction.Create(OpCodes.Ldstr, methodFilename),
+                // memberName
+                Instruction.Create(OpCodes.Ldstr, methodDef.FullName),
+                // call Robust.Shared.Profiling.TracyProfiler.BeginZone
+                Instruction.Create(OpCodes.Call, beginZoneMethodRef),
+
+            };
+            */
+
+            var methodBody = methodDef.Body;
+            var instructions = methodBody.Instructions;
 
             var ret = Instruction.Create(OpCodes.Ret);
             var leave = Instruction.Create(OpCodes.Leave_S, ret);
             var endFinally = Instruction.Create(OpCodes.Endfinally);
             var writeLine = Instruction.Create(OpCodes.Call, methodRef);
-            //var loadString = Instruction.Create(OpCodes.Ldstr, methodFilename);
-            var loadString = Instruction.Create(OpCodes.Ldstr, "hello");
-
+            var loadString = Instruction.Create(OpCodes.Ldstr, methodFilename);
+            
             var index = 0;
             while (true)
             {
-                if (index >= instructionCollection.Count)
+                if (index >= instructions.Count)
                     break;
 
-                var instr = instructionCollection[index];
+                var instr = instructions[index];
 
                 if (instr.OpCode == OpCodes.Ret)
                 {
-                    instructionCollection.Insert(index, leave);
-                    instructionCollection.RemoveAt(index + 1);
+                    instructions.Insert(index, leave);
+                    instructions.RemoveAt(index + 1);
                 }
 
                 index++;
             }
 
-            instructionCollection.Add(loadString);
-            instructionCollection.Add(writeLine);
-            instructionCollection.Add(endFinally);
-            instructionCollection.Add(ret);
+            instructions.Add(loadString);
+            instructions.Add(writeLine);
+            instructions.Add(endFinally);
+            instructions.Add(ret);
 
             //il.InsertAfter(methodDef.Body.Instructions.Last(), loadString);
 
