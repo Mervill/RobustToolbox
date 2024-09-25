@@ -12,6 +12,7 @@
   <ItemGroup>
     <PackageVersion Include="BenchmarkDotNet" Version="0.13.12" />
     <PackageVersion Include="DiscordRichPresence" Version="1.2.1.24" />
+    <PackageVersion Include="Fody" Version="6.8.2" />
     <PackageVersion Include="ILReader.Core" Version="1.0.0.4" />
     <PackageVersion Include="JetBrains.Annotations" Version="2023.3.0" />
     <PackageVersion Include="JetBrains.Profiler.Api" Version="1.4.0" />
