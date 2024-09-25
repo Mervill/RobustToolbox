@@ -11,8 +11,10 @@ namespace Weavers
     public class ModuleWeaver : BaseModuleWeaver
     {
         const string TracyProfilerFullName = "Robust.Shared.Profiling.TracyProfiler";
+        const string TracyProfilerZoneFullName = "Robust.Shared.Profiling.TracyZone";
         const string TracyProfilerBeginZoneFullName = "Robust.Shared.Profiling.TracyZone Robust.Shared.Profiling.TracyProfiler::BeginZone(System.String,System.Boolean,System.UInt32,System.String,System.UInt32,System.String,System.String)";
 
+        TypeDefinition TracyZoneTypeDef;
         MethodDefinition BeginZoneMethodDef;
 
         public override void Execute()
@@ -27,9 +29,11 @@ namespace Weavers
             ModuleDefinition.Types.Add(typeDefinition);
             */
 
-            var profilerType = ModuleDefinition.GetAllTypes().First(x => x.Name == "TracyProfiler");
+            var profilerType = ModuleDefinition.GetType(TracyProfilerFullName);
             var beginZone = profilerType.Methods.First(x => x.Name == "BeginZone");
             BeginZoneMethodDef = beginZone;
+
+            TracyZoneTypeDef = ModuleDefinition.GetType(TracyProfilerZoneFullName);
 
             foreach (var typeDef in ModuleDefinition.GetTypes())
             {
@@ -63,10 +67,9 @@ namespace Weavers
             if (methodDef.ReturnType.FullName != "System.Void")
                 return;
 
-            var methodSequencePoint = methodDef.GetSequencePoint();
             var methodLineNumber = 0;
             var methodFilename = "NoSource";
-            
+            var methodSequencePoint = methodDef.GetSequencePoint();
             if (methodSequencePoint != null)
             {
                 methodLineNumber = methodSequencePoint.StartLine;
@@ -75,20 +78,10 @@ namespace Weavers
 
             var methodRef = ModuleDefinition.ImportReference(typeof(Console).GetMethod("WriteLine", new[] { typeof(string) }));
 
-            /*
-            ModuleDefinition.TryGetTypeReference("Robust.Shared.Profiling.TracyProfiler", out var tracyProfilerRef);
-            var beginZoneMethodDef = tracyProfilerRef.Resolve()
-                .GetMethods()
-                .First(x => x.Name == "BeginZone");
+            // == prologue
 
-            var beginZoneMethodRef = ModuleDefinition.ImportReference(beginZoneMethodDef);
+            var vardef = new VariableDefinition(TracyZoneTypeDef);
 
-            var methodBody = methodDef.Body;
-            var instructions = methodBody.Instructions;
-            */
-
-            // prologue
-            
             Instruction[] prologue = new[]
             {
                 // zone name
@@ -107,17 +100,37 @@ namespace Weavers
                 Instruction.Create(OpCodes.Ldstr, methodDef.FullName),
                 // call Robust.Shared.Profiling.TracyProfiler.BeginZone
                 Instruction.Create(OpCodes.Call, BeginZoneMethodDef),
+                // store
+                Instruction.Create(OpCodes.Stloc, vardef),
             };
-            
-            var methodBody = methodDef.Body;
-            var instructions = methodBody.Instructions;
+
+            // something wrong with the call not removing the stack correctly?
+
+            // == epilogue
 
             var ret = Instruction.Create(OpCodes.Ret);
             var leave = Instruction.Create(OpCodes.Leave_S, ret);
             var endFinally = Instruction.Create(OpCodes.Endfinally);
             var writeLine = Instruction.Create(OpCodes.Call, methodRef);
-            //var loadString = Instruction.Create(OpCodes.Ldstr, methodFilename);
-            var loadString = Instruction.Create(OpCodes.Ldstr, BeginZoneMethodDef.FullName);
+            var loadString = Instruction.Create(OpCodes.Ldstr, methodFilename);
+            //var loadString = Instruction.Create(OpCodes.Ldstr, BeginZoneMethodDef.FullName);
+
+            Instruction[] epilogue = new[]
+            {
+                loadString,
+                writeLine,
+                endFinally,
+                ret,
+            };
+
+            // ==
+
+            var methodBody = methodDef.Body;
+            var instructions = methodBody.Instructions;
+
+            //methodBody.Variables.Add(vardef);
+
+            var originalBodyStart = instructions.First();
 
             var index = 0;
             while (true)
@@ -136,26 +149,27 @@ namespace Weavers
                 index++;
             }
 
-            instructions.Add(loadString);
-            instructions.Add(writeLine);
-            instructions.Add(endFinally);
-            instructions.Add(ret);
+            /*for (int x = prologue.Length - 1; x >= 0; x--)
+            {
+                instructions.Insert(0, prologue[x]);
+            }*/
 
-            //il.InsertAfter(methodDef.Body.Instructions.Last(), loadString);
-
-            //il.InsertAfter(loadString, writeLine);
-            //il.InsertAfter(writeLine, endFinally);
-            //il.InsertAfter(endFinally, ret);
+            for (int y = 0; y < epilogue.Length; y++)
+            {
+                instructions.Add(epilogue[y]);
+            }
 
             var handler = new ExceptionHandler(ExceptionHandlerType.Finally)
             {
-                TryStart = methodDef.Body.Instructions.First(),
+                TryStart = originalBodyStart,
                 TryEnd = loadString,
                 HandlerStart = loadString,
                 HandlerEnd = ret,
             };
 
-            methodDef.Body.ExceptionHandlers.Add(handler);
+            //methodBody.Variables.Add(new VariableDefinition())
+
+            methodBody.ExceptionHandlers.Add(handler);
         }
 
         public override IEnumerable<string> GetAssembliesForScanning()
