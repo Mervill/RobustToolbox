@@ -109,7 +109,7 @@ namespace Weavers
             // == epilogue
 
             var ret = Instruction.Create(OpCodes.Ret);
-            var leave = Instruction.Create(OpCodes.Leave_S, ret);
+            var leave = Instruction.Create(OpCodes.Leave, ret);
             var endFinally = Instruction.Create(OpCodes.Endfinally);
             var writeLine = Instruction.Create(OpCodes.Call, methodRef);
             var loadString = Instruction.Create(OpCodes.Ldstr, methodFilename);
@@ -166,8 +166,6 @@ namespace Weavers
                 HandlerStart = loadString,
                 HandlerEnd = ret,
             };
-
-            //methodBody.Variables.Add(new VariableDefinition())
 
             methodBody.ExceptionHandlers.Add(handler);
         }
