@@ -76,7 +76,7 @@ namespace Weavers
                 methodFilename = methodSequencePoint.Document.Url;
             }
 
-            var methodRef = ModuleDefinition.ImportReference(typeof(Console).GetMethod("WriteLine", new[] { typeof(string) }));
+            var consoleWriteLineRef = ModuleDefinition.ImportReference(typeof(Console).GetMethod("WriteLine", new[] { typeof(string) }));
 
             // == prologue
 
@@ -84,10 +84,13 @@ namespace Weavers
 
             Instruction[] prologue = new[]
             {
+                Instruction.Create(OpCodes.Ldstr, "Zone Begin"),
+                Instruction.Create(OpCodes.Call, consoleWriteLineRef),
+                /*
                 // zone name
                 Instruction.Create(OpCodes.Ldnull),
                 // active
-                Instruction.Create(OpCodes.Ldc_I4_1),
+                Instruction.Create(OpCodes.Ldc_I4_1),`
                 // color
                 Instruction.Create(OpCodes.Ldc_I4_0),
                 // text
@@ -102,6 +105,7 @@ namespace Weavers
                 Instruction.Create(OpCodes.Call, BeginZoneMethodDef),
                 // store
                 Instruction.Create(OpCodes.Stloc, vardef),
+                */
             };
 
             // something wrong with the call not removing the stack correctly?
@@ -111,10 +115,10 @@ namespace Weavers
             var ret = Instruction.Create(OpCodes.Ret);
             var leave = Instruction.Create(OpCodes.Leave, ret);
             var endFinally = Instruction.Create(OpCodes.Endfinally);
-            var writeLine = Instruction.Create(OpCodes.Call, methodRef);
-            var loadString = Instruction.Create(OpCodes.Ldstr, methodFilename);
-            //var loadString = Instruction.Create(OpCodes.Ldstr, BeginZoneMethodDef.FullName);
-
+            var writeLine = Instruction.Create(OpCodes.Call, consoleWriteLineRef);
+            var loadString = Instruction.Create(OpCodes.Ldstr, "Zone End");
+            //var loadString = Instruction.Create(OpCodes.Ldstr, methodFilename);
+            
             Instruction[] epilogue = new[]
             {
                 loadString,
@@ -132,7 +136,7 @@ namespace Weavers
 
             var originalBodyStart = instructions.First();
 
-            var index = 0;
+            /*var index = 0;
             while (true)
             {
                 if (index >= instructions.Count)
@@ -147,17 +151,17 @@ namespace Weavers
                 }
 
                 index++;
-            }
-
-            /*for (int x = prologue.Length - 1; x >= 0; x--)
-            {
-                instructions.Insert(0, prologue[x]);
             }*/
 
-            for (int y = 0; y < epilogue.Length; y++)
+            for (int x = prologue.Length - 1; x >= 0; x--)
+            {
+                instructions.Insert(0, prologue[x]);
+            }
+
+            /*for (int y = 0; y < epilogue.Length; y++)
             {
                 instructions.Add(epilogue[y]);
-            }
+            }*/
 
             var handler = new ExceptionHandler(ExceptionHandlerType.Finally)
             {
@@ -167,7 +171,7 @@ namespace Weavers
                 HandlerEnd = ret,
             };
 
-            methodBody.ExceptionHandlers.Add(handler);
+            //methodBody.ExceptionHandlers.Add(handler);
         }
 
         public override IEnumerable<string> GetAssembliesForScanning()
