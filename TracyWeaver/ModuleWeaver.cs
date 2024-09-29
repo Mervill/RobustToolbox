@@ -42,7 +42,7 @@ namespace Weavers
 
             TracyZoneTypeDef = ModuleDefinition.GetType(TracyProfilerZoneFullName);
 
-            //ExternalTracyWeaver();
+            //ExternalTracyWeaver(); // not working!
 
             InternalTracyWeaver();
         }
@@ -50,6 +50,7 @@ namespace Weavers
         // internal weave, try to wrap each instructions functions in profiler hooks
         private void InternalTracyWeaver()
         {
+            // [System.Runtime]System.Runtime.CompilerServices.CompilerGeneratedAttribute
             var compilerGeneratedRef = ModuleDefinition.ImportReference(typeof(CompilerGeneratedAttribute));
 
             foreach (var typeDef in ModuleDefinition.GetTypes())
@@ -60,7 +61,6 @@ namespace Weavers
                 if (typeDef.Name.StartsWith("Tracy"))
                     continue;
 
-                // [System.Runtime]System.Runtime.CompilerServices.CompilerGeneratedAttribute
                 if (typeDef.CustomAttributes.Any(x => x.AttributeType.Name.Contains("CompilerGenerated")))
                     continue;
 
@@ -97,15 +97,22 @@ namespace Weavers
                 methodFilename = methodSequencePoint.Document.Url;
             }
 
-            var consoleWriteLineRef = ModuleDefinition.ImportReference(typeof(Console).GetMethod("WriteLine", new[] { typeof(string) }));
+            var methodBody = methodDef.Body;
+            var instructions = methodBody.Instructions;
+
+            var originalLastIndex = instructions.Count - 1;
+            var originalReturnInstruction = instructions[originalLastIndex];
+            //Debug.Assert(originalReturnInstruction.OpCode == OpCodes.Ret);
+
+            // we need a variable to hold the TracyZone
+            var vardefTracyZone = new VariableDefinition(TracyZoneTypeDef);
+            methodBody.Variables.Add(vardefTracyZone);
 
             // == prologue
 
-            var vardef = new VariableDefinition(TracyZoneTypeDef);
-
             Instruction[] prologue = new[]
             {
-                // zone name
+                // zoneName
                 Instruction.Create(OpCodes.Ldnull),
                 // active
                 Instruction.Create(OpCodes.Ldc_I4_1),
@@ -122,27 +129,20 @@ namespace Weavers
                 // call Robust.Shared.Profiling.TracyProfiler.BeginZone
                 Instruction.Create(OpCodes.Call, BeginZoneMethodDef),
                 // store
-                Instruction.Create(OpCodes.Stloc, vardef),
-                
+                Instruction.Create(OpCodes.Stloc, vardefTracyZone),
             };
-
-            var methodBody = methodDef.Body;
-            var instructions = methodBody.Instructions;
-
-            var originalLastIndex = instructions.Count - 1;
-            var originalReturnInstruction = instructions[originalLastIndex];
-            //Debug.Assert(originalReturnInstruction.OpCode == OpCodes.Ret);
-
-            methodBody.Variables.Add(vardef);
 
             for (int x = prologue.Length - 1; x >= 0; x--)
             {
                 instructions.Insert(0, prologue[x]);
             }
 
+            // == epilogue
+
+            // ((IDisposable)tracyZone).Dispose();
             Instruction[] epilogue = new[]
             {
-                Instruction.Create(OpCodes.Ldloca, vardef),
+                Instruction.Create(OpCodes.Ldloca, vardefTracyZone),
                 Instruction.Create(OpCodes.Constrained, TracyZoneTypeDef),
                 Instruction.Create(OpCodes.Callvirt, IDisposableDisposeRef),
             };
