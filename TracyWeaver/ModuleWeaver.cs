@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using Fody;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
@@ -22,6 +21,8 @@ namespace Weavers
 
         public override void Execute()
         {
+            //System.Diagnostics.Debugger.Launch();
+
             /*
             var type = GetType();
             var typeDefinition = new TypeDefinition(
@@ -42,7 +43,7 @@ namespace Weavers
 
             //ExternalTracyWeaver();
 
-            //InternalTracyWeaver();
+            InternalTracyWeaver();
         }
 
         // internal weave, try to wrap each instructions functions in profiler hooks
@@ -75,9 +76,6 @@ namespace Weavers
         private void AddTracyZone(TypeDefinition parentTypeDef, MethodDefinition methodDef)
         {
             if (methodDef.Body == null)
-                return;
-
-            if (methodDef.ReturnType.FullName != "System.Void")
                 return;
 
             var methodLineNumber = 0;
@@ -119,13 +117,13 @@ namespace Weavers
                 // call Robust.Shared.Profiling.TracyProfiler.BeginZone
                 Instruction.Create(OpCodes.Call, BeginZoneMethodDef),
                 // store
-                Instruction.Create(OpCodes.Stloc, vardef)
+                Instruction.Create(OpCodes.Stloc, vardef),
+                
             };
-
-            // something wrong with the call not removing the stack correctly?
 
             // == epilogue
 
+            /*
             var ret = Instruction.Create(OpCodes.Ret);
             var leave = Instruction.Create(OpCodes.Leave, ret);
             var endFinally = Instruction.Create(OpCodes.Endfinally);
@@ -149,6 +147,7 @@ namespace Weavers
             methodBody.Variables.Add(vardef);
 
             var originalBodyStart = instructions.First();
+            */
 
             /*var index = 0;
             while (true)
@@ -167,26 +166,52 @@ namespace Weavers
                 index++;
             }*/
 
+            var methodBody = methodDef.Body;
+            var instructions = methodBody.Instructions;
+
+            var originalLastIndex = instructions.Count - 1;
+            var originalReturnInstruction = instructions[originalLastIndex];
+            //Debug.Assert(originalReturnInstruction.OpCode == OpCodes.Ret);
+
+            methodBody.Variables.Add(vardef);
+
             for (int x = prologue.Length - 1; x >= 0; x--)
             {
                 instructions.Insert(0, prologue[x]);
             }
 
-            var beforeRet = instructions.Count - 1;
-
-            instructions.Insert(beforeRet,
-                Instruction.Create(OpCodes.Callvirt, IDisposableDisposeRef));
-
-            instructions.Insert(beforeRet,
-                Instruction.Create(OpCodes.Constrained, TracyZoneTypeDef));
-
-            instructions.Insert(beforeRet,
-                Instruction.Create(OpCodes.Ldloca, vardef));
-
-            /*for (int y = 0; y < epilogue.Length; y++)
+            Instruction[] epilogue = new[]
             {
-                instructions.Add(epilogue[y]);
-            }*/
+                Instruction.Create(OpCodes.Ldloca, vardef),
+                Instruction.Create(OpCodes.Constrained, TracyZoneTypeDef),
+                Instruction.Create(OpCodes.Callvirt, IDisposableDisposeRef),
+            };
+
+            var epilogueStart = epilogue[0];
+
+            for (int x = 0; x < epilogue.Length; x++)
+            {
+                instructions.Insert(instructions.Count - 1, epilogue[x]);
+            }
+
+            // any instruction that was targeting `ret` now needs to target the start of the epilogue
+            for (int idx = 0; idx < instructions.Count; idx++)
+            {
+                var op = instructions[idx];
+                if (op.Operand != null && op.Operand == originalReturnInstruction)
+                {
+                    op.Operand = epilogueStart;
+                }
+            }
+
+            // any handler that ended on the `ret` now needs to end on the start of the epilogue
+            foreach (var handler in methodBody.ExceptionHandlers)
+            {
+                if (handler.HandlerEnd == originalReturnInstruction)
+                {
+                    handler.HandlerEnd = epilogueStart;
+                }
+            }
 
             /*var handler = new ExceptionHandler(ExceptionHandlerType.Finally)
             {
@@ -197,6 +222,50 @@ namespace Weavers
             };*/
 
             //methodBody.ExceptionHandlers.Add(handler);
+
+            methodBody.Optimize();
+        }
+
+        private static void FixReturns(MethodDefinition med, Instruction lastcall)
+        {
+            MethodBody body = med.Body;
+
+            var instructions = body.Instructions;
+            Instruction formallyLastInstruction = instructions[instructions.Count - 1];
+            Instruction lastLeaveInstruction = null;
+
+            var lastRet = Instruction.Create(OpCodes.Ret);
+            instructions.Add(lastcall);
+            instructions.Add(lastRet);
+
+            for (var index = 0; index < instructions.Count - 1; index++)
+            {
+                var instruction = instructions[index];
+                if (instruction.OpCode == OpCodes.Ret)
+                {
+                    Instruction leaveInstruction = Instruction.Create(OpCodes.Leave, lastcall);
+                    if (instruction == formallyLastInstruction)
+                    {
+                        lastLeaveInstruction = leaveInstruction;
+                    }
+
+                    instructions[index] = leaveInstruction;
+                }
+            }
+
+            FixBranchTargets(lastLeaveInstruction, formallyLastInstruction, body);
+        }
+
+        private static void FixBranchTargets(Instruction lastLeaveInstruction, Instruction formallyLastRetInstruction, MethodBody body)
+        {
+            for (var index = 0; index < body.Instructions.Count - 2; index++)
+            {
+                var instruction = body.Instructions[index];
+                if (instruction.Operand != null && instruction.Operand == formallyLastRetInstruction)
+                {
+                    instruction.Operand = lastLeaveInstruction;
+                }
+            }
         }
 
         // external weave: try to find every CALL instruction and wrap it in profiler hooks
