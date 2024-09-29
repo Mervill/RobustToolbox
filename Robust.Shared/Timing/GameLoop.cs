@@ -140,9 +140,15 @@ namespace Robust.Shared.Timing
             FrameEventArgs realFrameEvent;
             FrameEventArgs simFrameEvent;
 
+            // emit a frame mark so that the frist true frame is
+            // delineated from the program startup.
+            TracyProfiler.EmitFrameMark();
+
             while (Running)
             {
-                var runZone = TracyProfiler.BeginZone(memberName: "Robust::Shared::Timing::GameLoop::Run");
+                const string tracyMemberName = "Robust::Shared::Timing::GameLoop::Run";
+                var runZone = TracyProfiler.BeginZone(memberName: tracyMemberName);
+                var thinkZone = TracyProfiler.BeginZone("Think", memberName: tracyMemberName);
 
                 var profFrameStart = _prof.WriteValue(ProfTextStartFrame, ProfData.Int64(_timing.CurFrame));
                 var profFrameGroupStart = _prof.WriteGroupStart();
@@ -326,8 +332,9 @@ namespace Robust.Shared.Timing
                 _prof.WriteGroupEnd(profFrameGroupStart, "Frame", profFrameSw);
                 _prof.MarkIndex(profFrameStart, ProfIndexType.Frame);
 
+                thinkZone.Dispose();
+                var sleepZone = TracyProfiler.BeginZone("Sleep", color: 0x708090, memberName: tracyMemberName);
                 GameLoopEventSource.Log.SleepStart();
-                var sleepZone = TracyProfiler.BeginZone("Sleep", color: 0x708090);
 
                 // Set sleep to 1 if you want to be nice and give the rest of the timeslice up to the os scheduler.
                 // Set sleep to 0 if you want to use 100% cpu, but still cooperate with the scheduler.

@@ -14,6 +14,10 @@ public static class TracyProfiler
     // - For reasons known only to ancient sages, Tracy uses the term _Send_ for its internal API
     //   and _Emit_ for its external API. I.E. SendFrameMark becomes EmitFrameMark.
 
+    // Plot names need to be cached for the lifetime of the program
+    // seealso Tracy docs section 3.1
+    private static readonly Dictionary<string, CString> PlotNameCache = new Dictionary<string, CString>();
+
     /// <summary>
     /// Begins a new <see cref="ProfilerZone"/> and returns the handle to that zone. Time
     /// spent inside a zone is calculated by Tracy and shown in the profiler. A zone is
@@ -140,7 +144,7 @@ public static class TracyProfiler
     /// </param>
     public static void PlotConfig(string name, PlotType type = PlotType.Number, bool step = false, bool fill = true, uint color = 0)
     {
-        using var namestr = GetCString(name, out var _);
+        var namestr = GetPlotCString(name);
         TracyEmitPlotConfig(namestr, (int)type, step ? 1 : 0, fill ? 1 : 0, color);
     }
 
@@ -149,7 +153,7 @@ public static class TracyProfiler
     /// </summary>
     public static void Plot(string name, double val)
     {
-        using var namestr = GetCString(name, out var _);
+        var namestr = GetPlotCString(name);
         TracyEmitPlot(namestr, val);
     }
 
@@ -158,7 +162,7 @@ public static class TracyProfiler
     /// </summary>
     public static void Plot(string name, int val)
     {
-        using var namestr = GetCString(name, out var _);
+        var namestr = GetPlotCString(name);
         TracyEmitPlotInt(namestr, val);
     }
 
@@ -167,8 +171,28 @@ public static class TracyProfiler
     /// </summary>
     public static void Plot(string name, float val)
     {
-        using var namestr = GetCString(name, out var _);
+        var namestr = GetPlotCString(name);
         TracyEmitPlotFloat(namestr, val);
+    }
+
+    private static CString GetPlotCString(string name)
+    {
+        if (!PlotNameCache.TryGetValue(name, out var plotCString))
+        {
+            plotCString = CString.FromString(name);
+            PlotNameCache.Add(name, plotCString);
+        }
+        return plotCString;
+    }
+
+    /// <summary>
+    /// Emit an AppInfo string
+    /// </summary>
+    /// <param name="appInfo"></param>
+    public static void AppInfo(string appInfo)
+    {
+        using var infostr = GetCString(appInfo, out var infoln);
+        TracyEmitMessageAppinfo(infostr, infoln);
     }
 
     /// <summary>
@@ -180,6 +204,15 @@ public static class TracyProfiler
     public static void EmitFrameMark()
     {
         TracyEmitFrameMark(null);
+    }
+
+    /// <summary>
+    /// Is the app connected to the external profiler?
+    /// </summary>
+    /// <returns></returns>
+    public static bool IsConnected()
+    {
+        return Convert.ToBoolean(TracyConnected());
     }
 
     /// <summary>
