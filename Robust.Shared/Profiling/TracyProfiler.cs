@@ -186,6 +186,16 @@ public static class TracyProfiler
     }
 
     /// <summary>
+    /// Emit an AppInfo string
+    /// </summary>
+    /// <param name="appInfo"></param>
+    public static void AppInfo(string appInfo)
+    {
+        using var infostr = GetCString(appInfo, out var infoln);
+        TracyEmitMessageAppinfo(infostr, infoln);
+    }
+
+    /// <summary>
     /// Emit the top-level frame marker.
     /// </summary>
     /// <remarks>
