@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using Fody;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
@@ -49,12 +50,18 @@ namespace Weavers
         // internal weave, try to wrap each instructions functions in profiler hooks
         private void InternalTracyWeaver()
         {
+            var compilerGeneratedRef = ModuleDefinition.ImportReference(typeof(CompilerGeneratedAttribute));
+
             foreach (var typeDef in ModuleDefinition.GetTypes())
             {
                 if (!typeDef.IsClass)
                     continue;
 
                 if (typeDef.Name.StartsWith("Tracy"))
+                    continue;
+
+                // [System.Runtime]System.Runtime.CompilerServices.CompilerGeneratedAttribute
+                if (typeDef.CustomAttributes.Any(x => x.AttributeType.Name.Contains("CompilerGenerated")))
                     continue;
 
                 foreach (var methodDef in typeDef.Methods)
@@ -67,6 +74,9 @@ namespace Weavers
 
                     if (methodDef.IsSetter || methodDef.IsGetter)
                         continue;
+
+                    //if (methodDef.CustomAttributes.Any(x => x.AttributeType == compilerGeneratedRef))
+                    //    continue;
 
                     AddTracyZone(typeDef, methodDef);
                 }
@@ -95,11 +105,6 @@ namespace Weavers
 
             Instruction[] prologue = new[]
             {
-                /*
-                Instruction.Create(OpCodes.Ldstr, "Zone Begin"),
-                Instruction.Create(OpCodes.Call, consoleWriteLineRef),
-                */
-
                 // zone name
                 Instruction.Create(OpCodes.Ldnull),
                 // active
@@ -120,51 +125,6 @@ namespace Weavers
                 Instruction.Create(OpCodes.Stloc, vardef),
                 
             };
-
-            // == epilogue
-
-            /*
-            var ret = Instruction.Create(OpCodes.Ret);
-            var leave = Instruction.Create(OpCodes.Leave, ret);
-            var endFinally = Instruction.Create(OpCodes.Endfinally);
-            var writeLine = Instruction.Create(OpCodes.Call, consoleWriteLineRef);
-            var loadString = Instruction.Create(OpCodes.Ldstr, "Zone End");
-            //var loadString = Instruction.Create(OpCodes.Ldstr, methodFilename);
-            
-            Instruction[] epilogue = new[]
-            {
-                loadString,
-                writeLine,
-                endFinally,
-                ret,
-            };
-
-            // ==
-
-            var methodBody = methodDef.Body;
-            var instructions = methodBody.Instructions;
-
-            methodBody.Variables.Add(vardef);
-
-            var originalBodyStart = instructions.First();
-            */
-
-            /*var index = 0;
-            while (true)
-            {
-                if (index >= instructions.Count)
-                    break;
-
-                var instr = instructions[index];
-
-                if (instr.OpCode == OpCodes.Ret)
-                {
-                    instructions.Insert(index, leave);
-                    instructions.RemoveAt(index + 1);
-                }
-
-                index++;
-            }*/
 
             var methodBody = methodDef.Body;
             var instructions = methodBody.Instructions;
@@ -197,10 +157,10 @@ namespace Weavers
             // any instruction that was targeting `ret` now needs to target the start of the epilogue
             for (int idx = 0; idx < instructions.Count; idx++)
             {
-                var op = instructions[idx];
-                if (op.Operand != null && op.Operand == originalReturnInstruction)
+                var instr = instructions[idx];
+                if (instr.Operand != null && instr.Operand == originalReturnInstruction)
                 {
-                    op.Operand = epilogueStart;
+                    instr.Operand = epilogueStart;
                 }
             }
 
@@ -212,6 +172,23 @@ namespace Weavers
                     handler.HandlerEnd = epilogueStart;
                 }
             }
+
+            /*var index = 0;
+            while (true)
+            {
+                if (index >= instructions.Count)
+                    break;
+
+                var instr = instructions[index];
+
+                if (instr.OpCode == OpCodes.Ret)
+                {
+                    instructions.Insert(index, leave);
+                    instructions.RemoveAt(index + 1);
+                }
+
+                index++;
+            }*/
 
             /*var handler = new ExceptionHandler(ExceptionHandlerType.Finally)
             {
