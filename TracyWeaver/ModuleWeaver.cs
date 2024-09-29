@@ -7,6 +7,8 @@ using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
 
+using TracyProfiler;
+
 namespace Weavers
 {
     public class ModuleWeaver : BaseModuleWeaver
@@ -17,8 +19,24 @@ namespace Weavers
 
         MethodReference IDisposableDisposeRef;
 
-        TypeDefinition TracyZoneTypeDef;
         MethodDefinition BeginZoneMethodDef;
+
+        TypeDefinition TracyZoneTypeDef;
+
+        readonly List<string> ClassAttributeIgnoreNames = new List<string>()
+        {
+            nameof(CompilerGeneratedAttribute),
+            nameof(TracyAutowireIgnoreClassAttribute),
+        };
+
+        readonly List<string> MethodAttributeIgnoreNames = new List<string>()
+        {
+            //nameof(DebuggerHiddenAttribute),
+            //nameof(IteratorStateMachineAttribute), // No source location
+            //nameof(AsyncStateMachineAttribute), // No source location
+            nameof(CompilerGeneratedAttribute),
+            nameof(TracyAutowireIgnoreMethodAttribute),
+        };
 
         public override void Execute()
         {
@@ -50,18 +68,18 @@ namespace Weavers
         // internal weave, try to wrap each instructions functions in profiler hooks
         private void InternalTracyWeaver()
         {
-            // [System.Runtime]System.Runtime.CompilerServices.CompilerGeneratedAttribute
-            var compilerGeneratedRef = ModuleDefinition.ImportReference(typeof(CompilerGeneratedAttribute));
-
             foreach (var typeDef in ModuleDefinition.GetTypes())
             {
                 if (!typeDef.IsClass)
                     continue;
 
+                //if (typeDef.IsNested)
+                //    continue;
+
                 if (typeDef.Name.StartsWith("Tracy"))
                     continue;
 
-                if (typeDef.CustomAttributes.Any(x => x.AttributeType.Name.Contains("CompilerGenerated")))
+                if (typeDef.CustomAttributes.Any(x => ClassAttributeIgnoreNames.Contains(x.AttributeType.Name)))
                     continue;
 
                 foreach (var methodDef in typeDef.Methods)
@@ -75,8 +93,12 @@ namespace Weavers
                     if (methodDef.IsSetter || methodDef.IsGetter)
                         continue;
 
-                    //if (methodDef.CustomAttributes.Any(x => x.AttributeType == compilerGeneratedRef))
-                    //    continue;
+                    // optional - operators and constructors
+                    if (methodDef.IsSpecialName)
+                        continue;
+
+                    if (methodDef.CustomAttributes.Any(x => MethodAttributeIgnoreNames.Contains(x.AttributeType.Name)))
+                        continue;
 
                     AddTracyZone(typeDef, methodDef);
                 }
@@ -95,6 +117,35 @@ namespace Weavers
             {
                 methodLineNumber = methodSequencePoint.StartLine;
                 methodFilename = methodSequencePoint.Document.Url;
+            }
+            else
+            {
+                WriteWarning($"Rejecting {methodDef.FullName} because it has no sequence point!");
+                return;
+            }
+
+            var methodName = methodDef.FullName;
+
+            /*{
+                var methodSplit = methodName.Split(' ');
+                var returnName = methodSplit[0];
+                var fullInvoke = methodSplit[1];
+
+                var invokeSplit = fullInvoke.Split(new string[] { "::" }, StringSplitOptions.None);
+                var namespacePath = invokeSplit[0];
+                var nameArgs = invokeSplit[1];
+
+                var argsOpenIndex = nameArgs.IndexOf('(');
+
+                var name = nameArgs.Substring(0, argsOpenIndex);
+
+                methodName = $"{namespacePath}::{name}()";
+            }*/
+
+            {
+                var methodSplit = methodName.Split(' ');
+                //var returnName = methodSplit[0];
+                methodName = methodSplit[1];
             }
 
             var methodBody = methodDef.Body;
@@ -125,7 +176,7 @@ namespace Weavers
                 // filePath
                 Instruction.Create(OpCodes.Ldstr, methodFilename),
                 // memberName
-                Instruction.Create(OpCodes.Ldstr, methodDef.FullName),
+                Instruction.Create(OpCodes.Ldstr, methodName),
                 // call Robust.Shared.Profiling.TracyProfiler.BeginZone
                 Instruction.Create(OpCodes.Call, BeginZoneMethodDef),
                 // store
@@ -201,48 +252,6 @@ namespace Weavers
             //methodBody.ExceptionHandlers.Add(handler);
 
             methodBody.Optimize();
-        }
-
-        private static void FixReturns(MethodDefinition med, Instruction lastcall)
-        {
-            MethodBody body = med.Body;
-
-            var instructions = body.Instructions;
-            Instruction formallyLastInstruction = instructions[instructions.Count - 1];
-            Instruction lastLeaveInstruction = null;
-
-            var lastRet = Instruction.Create(OpCodes.Ret);
-            instructions.Add(lastcall);
-            instructions.Add(lastRet);
-
-            for (var index = 0; index < instructions.Count - 1; index++)
-            {
-                var instruction = instructions[index];
-                if (instruction.OpCode == OpCodes.Ret)
-                {
-                    Instruction leaveInstruction = Instruction.Create(OpCodes.Leave, lastcall);
-                    if (instruction == formallyLastInstruction)
-                    {
-                        lastLeaveInstruction = leaveInstruction;
-                    }
-
-                    instructions[index] = leaveInstruction;
-                }
-            }
-
-            FixBranchTargets(lastLeaveInstruction, formallyLastInstruction, body);
-        }
-
-        private static void FixBranchTargets(Instruction lastLeaveInstruction, Instruction formallyLastRetInstruction, MethodBody body)
-        {
-            for (var index = 0; index < body.Instructions.Count - 2; index++)
-            {
-                var instruction = body.Instructions[index];
-                if (instruction.Operand != null && instruction.Operand == formallyLastRetInstruction)
-                {
-                    instruction.Operand = lastLeaveInstruction;
-                }
-            }
         }
 
         // external weave: try to find every CALL instruction and wrap it in profiler hooks

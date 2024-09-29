@@ -53,7 +53,7 @@ namespace Robust.Server.GameObjects
             SetupNetworking();
             ReceivedSystemMessage += (_, systemMsg) => EventBus.RaiseEvent(EventSource.Network, systemMsg);
 
-            TracyProfiler.PlotConfig("Entities", step: true);
+            Robust.Shared.Profiling.TracyProfiler.PlotConfig("Entities", step: true);
 
             base.Initialize();
         }
@@ -198,7 +198,7 @@ namespace Robust.Server.GameObjects
 
             base.TickUpdate(frameTime, noPredictions, histogram);
 
-            TracyProfiler.Plot("Entities", Entities.Count);
+            Robust.Shared.Profiling.TracyProfiler.Plot("Entities", Entities.Count);
             EntitiesCount.Set(Entities.Count);
         }
 
