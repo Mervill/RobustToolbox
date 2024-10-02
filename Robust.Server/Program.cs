@@ -11,6 +11,7 @@ using Robust.Shared.Log;
 using Robust.Shared.Asynchronous;
 using Robust.Shared.Reflection;
 using Robust.Shared.Utility;
+using Robust.Shared.Profiling;
 
 namespace Robust.Server
 {
@@ -44,6 +45,8 @@ namespace Robust.Server
 
         private static void ParsedMain(CommandLineArgs args, bool contentStart, ServerOptions options)
         {
+            var tracyStartupZone = TracyProfiler.BeginZone("Server Startup");
+
             ServerWarmup.RunWarmup();
 
             Thread.CurrentThread.Name = "Main Thread";
@@ -67,6 +70,8 @@ namespace Robust.Server
                 //Not like you'd see this, haha. Perhaps later for logging.
                 return;
             }
+
+            tracyStartupZone.Dispose();
 
             string strVersion = Assembly.GetExecutingAssembly().GetName().Version!.ToString();
             logger.Info("Server Version " + strVersion + " -> Ready");
