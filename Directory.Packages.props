@@ -66,7 +66,7 @@
     <PackageVersion Include="System.Runtime.CompilerServices.Unsafe" Version="6.0.0" />
     <PackageVersion Include="TerraFX.Interop.Windows" Version="10.0.22621.5" />
     <PackageVersion Include="TerraFX.Interop.Xlib" Version="6.4.0" />
-    <PackageVersion Include="Tracy-CSharp" Version="0.11.1" />
+    <PackageVersion Include="Tracy-CSharp" Version="0.11.1-hotfix" />
     <PackageVersion Include="VorbisPizza" Version="1.3.0" />
     <PackageVersion Include="YamlDotNet" Version="13.7.1" />
     <PackageVersion Include="prometheus-net" Version="8.2.1" />
