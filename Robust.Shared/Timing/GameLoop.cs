@@ -6,6 +6,7 @@ using Robust.Shared.Exceptions;
 using Prometheus;
 using Robust.Shared.Configuration;
 using Robust.Shared.Profiling;
+using Robust.Tracy;
 
 namespace Robust.Shared.Timing
 {

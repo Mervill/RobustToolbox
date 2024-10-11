@@ -11,7 +11,7 @@ using Robust.Shared.Log;
 using Robust.Shared.Asynchronous;
 using Robust.Shared.Reflection;
 using Robust.Shared.Utility;
-using Robust.Shared.Profiling;
+using Robust.Tracy;
 
 namespace Robust.Server
 {
@@ -59,6 +59,10 @@ namespace Robust.Server
             var server = deps.Resolve<IBaseServerInternal>();
             var logger = deps.Resolve<ILogManager>().RootSawmill;
 
+            string strVersion = Assembly.GetExecutingAssembly().GetName().Version!.ToString();
+            TracyProfiler.AppInfo("Server Version " + strVersion);
+            logger.Info("Server Version " + strVersion);
+
             server.ContentStart = contentStart;
             server.SetCommandLineArgs(args);
 
@@ -73,8 +77,7 @@ namespace Robust.Server
 
             tracyStartupZone.Dispose();
 
-            string strVersion = Assembly.GetExecutingAssembly().GetName().Version!.ToString();
-            logger.Info("Server Version " + strVersion + " -> Ready");
+            logger.Info("Server -> Ready");
 
             server.MainLoop();
 

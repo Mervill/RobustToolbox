@@ -16,11 +16,11 @@ using Robust.Shared.Log;
 using Robust.Shared.Network;
 using Robust.Shared.Network.Messages;
 using Robust.Shared.Player;
-using Robust.Shared.Profiling;
 using Robust.Shared.Prototypes;
 using Robust.Shared.Replays;
 using Robust.Shared.Timing;
 using Robust.Shared.Utility;
+using Robust.Tracy;
 
 namespace Robust.Server.GameObjects
 {
@@ -53,7 +53,8 @@ namespace Robust.Server.GameObjects
             SetupNetworking();
             ReceivedSystemMessage += (_, systemMsg) => EventBus.RaiseEvent(EventSource.Network, systemMsg);
 
-            Robust.Shared.Profiling.TracyProfiler.PlotConfig("Entities", step: true);
+            TracyProfiler.PlotConfig("Entities", step: true);
+            TracyProfiler.Plot("Entities", 0);
 
             base.Initialize();
         }
@@ -198,7 +199,7 @@ namespace Robust.Server.GameObjects
 
             base.TickUpdate(frameTime, noPredictions, histogram);
 
-            Robust.Shared.Profiling.TracyProfiler.Plot("Entities", Entities.Count);
+            TracyProfiler.Plot("Entities", Entities.Count);
             EntitiesCount.Set(Entities.Count);
         }
 
