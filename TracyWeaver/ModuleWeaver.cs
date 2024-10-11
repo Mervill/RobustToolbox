@@ -15,8 +15,7 @@ namespace Weavers
     {
         const string TracyProfilerFullName = "Robust.Tracy.TracyProfiler";
         const string TracyProfilerZoneFullName = "Robust.Tracy.TracyZone";
-        //const string TracyProfilerBeginZoneFullName = "Robust.Shared.Profiling.TracyZone Robust.Shared.Profiling.TracyProfiler::BeginZone(System.String,System.Boolean,System.UInt32,System.String,System.UInt32,System.String,System.String)";
-
+        
         MethodReference IDisposableDisposeRef;
 
         MethodReference BeginZoneMethodDef;
@@ -52,6 +51,8 @@ namespace Weavers
             ModuleDefinition.Types.Add(typeDefinition);
             */
 
+            // Get references
+
             IDisposableDisposeRef = ModuleDefinition.ImportReference(typeof(IDisposable).GetMethod("Dispose"));
 
             IAssemblyResolver currentAssemblyResolver = ModuleDefinition.AssemblyResolver;
@@ -59,16 +60,14 @@ namespace Weavers
             AssemblyDefinition robustTracyAssemblyReference = currentAssemblyResolver.Resolve(robustTracyNameReference);
             ModuleDefinition robustTracyMainModule = robustTracyAssemblyReference.MainModule;
 
-            //robustTracyMainModule.TryGetTypeReference(TracyProfilerFullName, out TypeReference tracyProfilerTypeRef);
-            
             TypeDefinition profilerType = robustTracyMainModule.GetType(TracyProfilerFullName);
-            MethodDefinition beginZone = profilerType.Methods.First(x => x.Name == "BeginZone");
-            
+            MethodDefinition beginZone = profilerType.Methods.First(x => x.Name == "BeginZone");            
             BeginZoneMethodDef = ModuleDefinition.ImportReference(beginZone);
 
             TypeDefinition profilerZoneType = robustTracyMainModule.GetType(TracyProfilerZoneFullName);
-
             TracyZoneTypeDef = ModuleDefinition.ImportReference(profilerZoneType);
+
+            // Execute the Weaver
 
             //ExternalTracyWeaver(); // not working!
 
@@ -200,9 +199,9 @@ namespace Weavers
 
             // == epilogue
 
-            // ((IDisposable)tracyZone).Dispose();
             Instruction[] epilogue = new[]
             {
+                // This emits: ((IDisposable)tracyZone).Dispose();
                 Instruction.Create(OpCodes.Ldloca, vardefTracyZone),
                 Instruction.Create(OpCodes.Constrained, TracyZoneTypeDef),
                 Instruction.Create(OpCodes.Callvirt, IDisposableDisposeRef),
