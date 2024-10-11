@@ -45,7 +45,7 @@ namespace Robust.Server
 
         private static void ParsedMain(CommandLineArgs args, bool contentStart, ServerOptions options)
         {
-            var tracyStartupZone = TracyProfiler.BeginZone("Server Startup");
+            var tracyStartupZone = Tracy.TracyProfiler.BeginZone("Server Startup");
 
             ServerWarmup.RunWarmup();
 
@@ -60,7 +60,7 @@ namespace Robust.Server
             var logger = deps.Resolve<ILogManager>().RootSawmill;
 
             string strVersion = Assembly.GetExecutingAssembly().GetName().Version!.ToString();
-            TracyProfiler.AppInfo("Server Version " + strVersion);
+            Tracy.TracyProfiler.AppInfo("Server Version " + strVersion);
             logger.Info("Server Version " + strVersion);
 
             server.ContentStart = contentStart;

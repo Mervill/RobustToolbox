@@ -13,15 +13,15 @@ namespace Weavers
 {
     public class ModuleWeaver : BaseModuleWeaver
     {
-        const string TracyProfilerFullName = "Robust.Shared.Profiling.TracyProfiler";
-        const string TracyProfilerZoneFullName = "Robust.Shared.Profiling.TracyZone";
-        const string TracyProfilerBeginZoneFullName = "Robust.Shared.Profiling.TracyZone Robust.Shared.Profiling.TracyProfiler::BeginZone(System.String,System.Boolean,System.UInt32,System.String,System.UInt32,System.String,System.String)";
+        const string TracyProfilerFullName = "Robust.Tracy.TracyProfiler";
+        const string TracyProfilerZoneFullName = "Robust.Tracy.TracyZone";
+        //const string TracyProfilerBeginZoneFullName = "Robust.Shared.Profiling.TracyZone Robust.Shared.Profiling.TracyProfiler::BeginZone(System.String,System.Boolean,System.UInt32,System.String,System.UInt32,System.String,System.String)";
 
         MethodReference IDisposableDisposeRef;
 
-        MethodDefinition BeginZoneMethodDef;
+        MethodReference BeginZoneMethodDef;
 
-        TypeDefinition TracyZoneTypeDef;
+        TypeReference TracyZoneTypeDef;
 
         readonly List<string> ClassAttributeIgnoreNames = new List<string>()
         {
@@ -54,11 +54,21 @@ namespace Weavers
 
             IDisposableDisposeRef = ModuleDefinition.ImportReference(typeof(IDisposable).GetMethod("Dispose"));
 
-            var profilerType = ModuleDefinition.GetType(TracyProfilerFullName);
-            var beginZone = profilerType.Methods.First(x => x.Name == "BeginZone");
-            BeginZoneMethodDef = beginZone;
+            IAssemblyResolver currentAssemblyResolver = ModuleDefinition.AssemblyResolver;
+            AssemblyNameReference robustTracyNameReference = ModuleDefinition.AssemblyReferences.FirstOrDefault(x => x.Name == "Robust.Tracy");
+            AssemblyDefinition robustTracyAssemblyReference = currentAssemblyResolver.Resolve(robustTracyNameReference);
+            ModuleDefinition robustTracyMainModule = robustTracyAssemblyReference.MainModule;
 
-            TracyZoneTypeDef = ModuleDefinition.GetType(TracyProfilerZoneFullName);
+            //robustTracyMainModule.TryGetTypeReference(TracyProfilerFullName, out TypeReference tracyProfilerTypeRef);
+            
+            TypeDefinition profilerType = robustTracyMainModule.GetType(TracyProfilerFullName);
+            MethodDefinition beginZone = profilerType.Methods.First(x => x.Name == "BeginZone");
+            
+            BeginZoneMethodDef = ModuleDefinition.ImportReference(beginZone);
+
+            TypeDefinition profilerZoneType = robustTracyMainModule.GetType(TracyProfilerZoneFullName);
+
+            TracyZoneTypeDef = ModuleDefinition.ImportReference(profilerZoneType);
 
             //ExternalTracyWeaver(); // not working!
 
