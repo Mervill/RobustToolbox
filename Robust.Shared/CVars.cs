@@ -394,6 +394,18 @@ namespace Robust.Shared
         public static readonly CVarDef<int> NetEncryptionThreadChannelSize =
             CVarDef.Create("net.encryption_thread_channel_size", 16);
 
+        /// <summary>
+        /// Whether the server should request HWID system for client identification.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Note that modern HWIDs are only available if the connection is authenticated.
+        /// </para>
+        /// </remarks>
+        public static readonly CVarDef<bool> NetHWId =
+            CVarDef.Create("net.hwid", true, CVar.SERVERONLY);
+
+
         /**
          * SUS
          */
@@ -670,6 +682,13 @@ namespace Robust.Shared
         /// </summary>
         public static readonly CVarDef<string> BuildManifestHash =
             CVarDef.Create("build.manifest_hash", "");
+
+        /// <summary>
+        /// Allows you to disable the display of all entities in the spawn menu that are not labeled with the ShowSpawnMenu category.
+        /// This is useful for forks that just want to disable the standard upstream content
+        /// </summary>
+        public static readonly CVarDef<string> EntitiesCategoryFilter =
+            CVarDef.Create("build.entities_category_filter", "");
 
         /*
          * WATCHDOG
