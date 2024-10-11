@@ -131,7 +131,7 @@ namespace Robust.Shared.Timing
         ///     Start running the loop. This function will block for as long as the loop is Running.
         ///     Set Running to false to exit the loop and return from this function.
         /// </summary>
-        [TracyProfiler.TracyAutowireIgnoreMethod]
+        [global::TracyProfiler.TracyAutowireIgnoreMethod]
         public void Run()
         {
             if (_timing.TickRate <= 0)
@@ -144,13 +144,13 @@ namespace Robust.Shared.Timing
 
             // emit a frame mark so that the frist true frame is
             // delineated from the program startup.
-            Robust.Shared.Profiling.TracyProfiler.EmitFrameMark();
+            Robust.Tracy.TracyProfiler.EmitFrameMark();
 
             while (Running)
             {
                 const string tracyMemberName = "Robust::Shared::Timing::GameLoop::Run";
-                var runZone = Robust.Shared.Profiling.TracyProfiler.BeginZone(memberName: tracyMemberName);
-                var thinkZone = Robust.Shared.Profiling.TracyProfiler.BeginZone("Think", memberName: tracyMemberName);
+                var runZone = Robust.Tracy.TracyProfiler.BeginZone(memberName: tracyMemberName);
+                var thinkZone = Robust.Tracy.TracyProfiler.BeginZone("Think", memberName: tracyMemberName);
 
                 var profFrameStart = _prof.WriteValue(ProfTextStartFrame, ProfData.Int64(_timing.CurFrame));
                 var profFrameGroupStart = _prof.WriteGroupStart();
@@ -335,7 +335,7 @@ namespace Robust.Shared.Timing
                 _prof.MarkIndex(profFrameStart, ProfIndexType.Frame);
 
                 thinkZone.Dispose();
-                var sleepZone = Robust.Shared.Profiling.TracyProfiler.BeginZone("Sleep", color: 0x708090, memberName: tracyMemberName);
+                var sleepZone = Robust.Tracy.TracyProfiler.BeginZone("Sleep", color: 0x708090, memberName: tracyMemberName);
                 GameLoopEventSource.Log.SleepStart();
 
                 // Set sleep to 1 if you want to be nice and give the rest of the timeslice up to the os scheduler.
@@ -364,7 +364,7 @@ namespace Robust.Shared.Timing
                 GameLoopEventSource.Log.SleepStop();
                 
                 runZone.Dispose();
-                Robust.Shared.Profiling.TracyProfiler.EmitFrameMark();
+                Robust.Tracy.TracyProfiler.EmitFrameMark();
             }
         }
     }
