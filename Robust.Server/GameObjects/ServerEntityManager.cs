@@ -16,7 +16,6 @@ using Robust.Shared.Log;
 using Robust.Shared.Network;
 using Robust.Shared.Network.Messages;
 using Robust.Shared.Player;
-using Robust.Shared.Profiling;
 using Robust.Shared.Prototypes;
 using Robust.Shared.Replays;
 using Robust.Shared.Timing;
