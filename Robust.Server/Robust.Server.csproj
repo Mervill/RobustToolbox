@@ -13,6 +13,10 @@
     <NoWarn>CA1416</NoWarn>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Fody">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
     <PackageReference Include="JetBrains.Annotations" PrivateAssets="All" />
     <PackageReference Include="SpaceWizards.HttpListener" PrivateAssets="compile" />
     <PackageReference Include="Microsoft.Data.Sqlite.Core" />
@@ -38,6 +42,11 @@
     <ProjectReference Include="..\Robust.Shared.Scripting\Robust.Shared.Scripting.csproj" />
     <ProjectReference Include="..\Robust.Shared\Robust.Shared.csproj" />
     <ProjectReference Include="..\Robust.Packaging\Robust.Packaging.csproj" />
+    <ProjectReference Include="..\TracyProfiler\TracyProfiler.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <WeaverFiles Include="..\TracyWeaver\bin\$(Configuration)\TracyWeaver.dll" WeaverClassNames="ModuleWeaver" />
+    <ProjectReference Include="..\Robust.Tracy\Robust.Tracy.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="server_config.toml">

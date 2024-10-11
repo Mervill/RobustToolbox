@@ -558,6 +558,7 @@ namespace Robust.Server
         }
 
         /// <inheritdoc />
+        [TracyProfiler.TracyAutowireIgnoreMethod]
         public void MainLoop()
         {
             SetupMainLoop();
