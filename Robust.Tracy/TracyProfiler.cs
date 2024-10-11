@@ -6,13 +6,16 @@ using System.Xml.Linq;
 using bottlenoselabs.C2CS.Runtime;
 using static Tracy.PInvoke;
 
-namespace Robust.Shared.Profiling;
+namespace Robust.Tracy;
 
 public static class TracyProfiler
 {
     // Notes:
     // - For reasons known only to ancient sages, Tracy uses the term _Send_ for its internal API
     //   and _Emit_ for its external API. I.E. SendFrameMark becomes EmitFrameMark.
+
+    [ThreadStatic]
+    private static CString? ThreadName;
 
     // Plot names need to be cached for the lifetime of the program
     // seealso Tracy docs section 3.1
@@ -190,6 +193,17 @@ public static class TracyProfiler
     {
         using var infostr = GetCString(appInfo, out var infoln);
         TracyEmitMessageAppinfo(infostr, infoln);
+    }
+
+    public static void SetThreadName(string threadName)
+    {
+        if (ThreadName != null)
+        {
+            ThreadName.Value.Dispose();
+            ThreadName = null;
+        }
+        ThreadName = CString.FromString(threadName);
+        TracySetThreadName(ThreadName.Value);
     }
 
     /// <summary>

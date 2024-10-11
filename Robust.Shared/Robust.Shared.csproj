@@ -12,7 +12,6 @@
     <PackageReference Include="Microsoft.ILVerification" PrivateAssets="compile" />
     <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" />
     <PackageReference Include="Nett" PrivateAssets="compile" />
-    <PackageReference Include="Tracy-CSharp" />
     <PackageReference Include="VorbisPizza" PrivateAssets="compile" />
     <PackageReference Include="Pidgin" />
     <PackageReference Include="prometheus-net" />
@@ -30,6 +29,7 @@
     <ProjectReference Include="..\Lidgren.Network\Lidgren.Network.csproj" />
     <ProjectReference Include="..\NetSerializer\NetSerializer\NetSerializer.csproj" />
     <ProjectReference Include="..\Robust.Shared.Maths\Robust.Shared.Maths.csproj" />
+    <ProjectReference Include="..\Robust.Tracy\Robust.Tracy.csproj" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Utility\TypeAbbreviations.yaml">

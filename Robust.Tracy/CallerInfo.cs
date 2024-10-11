@@ -1,6 +1,6 @@
 using System.Runtime.CompilerServices;
 
-namespace Robust.Shared.Profiling;
+namespace Robust.Tracy;
 
 /// <summary>
 /// Holds data retruned by the <c>Caller</c> attributes.

@@ -21,6 +21,7 @@ using Robust.Shared.Prototypes;
 using Robust.Shared.Replays;
 using Robust.Shared.Timing;
 using Robust.Shared.Utility;
+using Robust.Tracy;
 
 namespace Robust.Server.GameObjects
 {
@@ -54,6 +55,7 @@ namespace Robust.Server.GameObjects
             ReceivedSystemMessage += (_, systemMsg) => EventBus.RaiseEvent(EventSource.Network, systemMsg);
 
             TracyProfiler.PlotConfig("Entities", step: true);
+            TracyProfiler.Plot("Entities", 0);
 
             base.Initialize();
         }

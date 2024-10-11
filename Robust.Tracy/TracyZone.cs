@@ -1,7 +1,7 @@
 using System;
 using static Tracy.PInvoke;
 
-namespace Robust.Shared.Profiling;
+namespace Robust.Tracy;
 
 public readonly struct TracyZone : IDisposable
 {
