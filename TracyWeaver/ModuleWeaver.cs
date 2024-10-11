@@ -15,26 +15,28 @@ namespace Weavers
     {
         const string TracyProfilerFullName = "Robust.Tracy.TracyProfiler";
         const string TracyProfilerZoneFullName = "Robust.Tracy.TracyZone";
-        
+
+        const string ZoneOptionsAttributeName = "TracyAutowireZoneOptionsAttribute";
+
         MethodReference IDisposableDisposeRef;
 
-        MethodReference BeginZoneMethodDef;
+        MethodReference BeginZoneMethodRef;
 
-        TypeReference TracyZoneTypeDef;
+        TypeReference TracyZoneTypeRef;
 
         readonly List<string> ClassAttributeIgnoreNames = new List<string>()
         {
             nameof(CompilerGeneratedAttribute),
-            nameof(TracyAutowireIgnoreClassAttribute),
+            nameof(TracyAutowireIgnoreAttribute),
         };
 
         readonly List<string> MethodAttributeIgnoreNames = new List<string>()
         {
             //nameof(DebuggerHiddenAttribute),
-            //nameof(IteratorStateMachineAttribute), // No source location
-            //nameof(AsyncStateMachineAttribute), // No source location
+            nameof(IteratorStateMachineAttribute), // No source location
+            nameof(AsyncStateMachineAttribute), // No source location
             nameof(CompilerGeneratedAttribute),
-            nameof(TracyAutowireIgnoreMethodAttribute),
+            nameof(TracyAutowireIgnoreAttribute),
         };
 
         public override void Execute()
@@ -57,15 +59,27 @@ namespace Weavers
 
             IAssemblyResolver currentAssemblyResolver = ModuleDefinition.AssemblyResolver;
             AssemblyNameReference robustTracyNameReference = ModuleDefinition.AssemblyReferences.FirstOrDefault(x => x.Name == "Robust.Tracy");
+
+            /*foreach (var assem in ModuleDefinition.AssemblyReferences)
+            {
+                WriteWarning($"---- {assem.Name}");
+            }*/
+
+            if (robustTracyNameReference == null)
+            {
+                WriteError($"ModuleDefinition does not contain a reference to `Robust.Tracy`!");
+                return;
+            }
+
             AssemblyDefinition robustTracyAssemblyReference = currentAssemblyResolver.Resolve(robustTracyNameReference);
             ModuleDefinition robustTracyMainModule = robustTracyAssemblyReference.MainModule;
 
             TypeDefinition profilerType = robustTracyMainModule.GetType(TracyProfilerFullName);
             MethodDefinition beginZone = profilerType.Methods.First(x => x.Name == "BeginZone");            
-            BeginZoneMethodDef = ModuleDefinition.ImportReference(beginZone);
+            BeginZoneMethodRef = ModuleDefinition.ImportReference(beginZone);
 
             TypeDefinition profilerZoneType = robustTracyMainModule.GetType(TracyProfilerZoneFullName);
-            TracyZoneTypeDef = ModuleDefinition.ImportReference(profilerZoneType);
+            TracyZoneTypeRef = ModuleDefinition.ImportReference(profilerZoneType);
 
             // Execute the Weaver
 
@@ -79,11 +93,9 @@ namespace Weavers
         {
             foreach (var typeDef in ModuleDefinition.GetTypes())
             {
+                // filters out interfaces
                 if (!typeDef.IsClass)
                     continue;
-
-                //if (typeDef.IsNested)
-                //    continue;
 
                 if (typeDef.Name.StartsWith("Tracy"))
                     continue;
@@ -116,8 +128,13 @@ namespace Weavers
 
         private void AddTracyZone(TypeDefinition parentTypeDef, MethodDefinition methodDef)
         {
+            // This check needs to happen here or else GetSequencePoint() will throw because
+            // it just accesses methodDef.Body without checking for null.
             if (methodDef.Body == null)
+            {
+                //WriteWarning($"Rejecting {methodDef.FullName} because it has a null method body.");
                 return;
+            }
 
             var methodLineNumber = 0;
             var methodFilename = "NoSource";
@@ -129,7 +146,7 @@ namespace Weavers
             }
             else
             {
-                WriteWarning($"Rejecting {methodDef.FullName} because it has no sequence point!");
+                WriteWarning($"Rejecting {methodDef.FullName} because it has no sequence point (likely compiler generated method).");
                 return;
             }
 
@@ -157,15 +174,46 @@ namespace Weavers
                 methodName = methodSplit[1];
             }
 
+            int zoneColor = 0;
+
+            //TracyAutowireZoneOptionsAttribute
+            var zoneOptions = methodDef.CustomAttributes.FirstOrDefault(x => x.AttributeType.Name == ZoneOptionsAttributeName);
+            if (zoneOptions != null)
+            {
+                //zoneColor = (int)zoneOptions.Fields[0].Argument.Value;
+                WriteWarning("zoneOptions:");
+                WriteWarning($"    {zoneOptions.HasConstructorArguments}");
+                WriteWarning($"    {zoneOptions.HasFields}");
+                WriteWarning($"    {zoneOptions.HasProperties}");
+
+                foreach (var arg in zoneOptions.ConstructorArguments)
+                {
+                    WriteWarning($"        {arg.Value} ({arg.Value.GetType()})");
+                }
+
+                zoneColor = (int)((uint)zoneOptions.ConstructorArguments[0].Value);
+            }
+
             var methodBody = methodDef.Body;
             var instructions = methodBody.Instructions;
 
             var originalLastIndex = instructions.Count - 1;
             var originalReturnInstruction = instructions[originalLastIndex];
-            //Debug.Assert(originalReturnInstruction.OpCode == OpCodes.Ret);
+            if (originalReturnInstruction.OpCode != OpCodes.Ret)
+            {
+                if (originalReturnInstruction.OpCode == OpCodes.Throw)
+                {
+                    WriteDebug($"Rejecting {methodDef.FullName} because it ends with a throw instruction (likely unimplemented method).");
+                }
+                else
+                {
+                    WriteWarning($"Rejecting {methodDef.FullName} because it does not end with a RET or THROW instruction: `{originalReturnInstruction.OpCode}`.");
+                }
+                return;
+            }
 
             // we need a variable to hold the TracyZone
-            var vardefTracyZone = new VariableDefinition(TracyZoneTypeDef);
+            var vardefTracyZone = new VariableDefinition(TracyZoneTypeRef);
             methodBody.Variables.Add(vardefTracyZone);
 
             // == prologue
@@ -177,7 +225,7 @@ namespace Weavers
                 // active
                 Instruction.Create(OpCodes.Ldc_I4_1),
                 // color
-                Instruction.Create(OpCodes.Ldc_I4_0),
+                Instruction.Create(OpCodes.Ldc_I4, zoneColor),
                 // text
                 Instruction.Create(OpCodes.Ldnull),
                 // lineNumber
@@ -187,7 +235,7 @@ namespace Weavers
                 // memberName
                 Instruction.Create(OpCodes.Ldstr, methodName),
                 // call Robust.Shared.Profiling.TracyProfiler.BeginZone
-                Instruction.Create(OpCodes.Call, BeginZoneMethodDef),
+                Instruction.Create(OpCodes.Call, BeginZoneMethodRef),
                 // store
                 Instruction.Create(OpCodes.Stloc, vardefTracyZone),
             };
@@ -203,7 +251,7 @@ namespace Weavers
             {
                 // This emits: ((IDisposable)tracyZone).Dispose();
                 Instruction.Create(OpCodes.Ldloca, vardefTracyZone),
-                Instruction.Create(OpCodes.Constrained, TracyZoneTypeDef),
+                Instruction.Create(OpCodes.Constrained, TracyZoneTypeRef),
                 Instruction.Create(OpCodes.Callvirt, IDisposableDisposeRef),
             };
 
@@ -261,6 +309,11 @@ namespace Weavers
             //methodBody.ExceptionHandlers.Add(handler);
 
             methodBody.Optimize();
+        }
+
+        private void GetModuleZoneOptions(MethodDefinition methodDef)
+        {
+            
         }
 
         // external weave: try to find every CALL instruction and wrap it in profiler hooks

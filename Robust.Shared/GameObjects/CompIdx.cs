@@ -7,7 +7,7 @@ using Robust.Shared.Utility;
 
 namespace Robust.Shared.GameObjects;
 
-[TracyProfiler.TracyAutowireIgnoreClass]
+[TracyProfiler.TracyAutowireIgnore]
 public readonly struct CompIdx : IEquatable<CompIdx>
 {
     internal readonly int Value;

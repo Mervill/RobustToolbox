@@ -131,7 +131,7 @@ namespace Robust.Shared.Timing
         ///     Start running the loop. This function will block for as long as the loop is Running.
         ///     Set Running to false to exit the loop and return from this function.
         /// </summary>
-        [global::TracyProfiler.TracyAutowireIgnoreMethod]
+        [TracyProfiler.TracyAutowireIgnore]
         public void Run()
         {
             if (_timing.TickRate <= 0)

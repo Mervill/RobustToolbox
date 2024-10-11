@@ -21,13 +21,13 @@ namespace Robust.Server
 
         private static bool _hasStarted;
 
-        [TracyProfiler.TracyAutowireIgnoreMethod]
+        [TracyProfiler.TracyAutowireIgnore]
         internal static void Main(string[] args)
         {
             Start(args, new ServerOptions());
         }
 
-        [TracyProfiler.TracyAutowireIgnoreMethod]
+        [TracyProfiler.TracyAutowireIgnore]
         internal static void Start(string[] args, ServerOptions options, bool contentStart = false)
         {
             if (_hasStarted)
@@ -45,7 +45,7 @@ namespace Robust.Server
             ParsedMain(parsed, contentStart, options);
         }
 
-        [TracyProfiler.TracyAutowireIgnoreMethod]
+        [TracyProfiler.TracyAutowireIgnore]
         private static void ParsedMain(CommandLineArgs args, bool contentStart, ServerOptions options)
         {
             var tracyStartupZone = Tracy.TracyProfiler.BeginZone("Server Startup");
