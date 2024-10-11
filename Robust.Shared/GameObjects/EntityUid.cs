@@ -83,6 +83,7 @@ namespace Robust.Shared.GameObjects
         }
 
         /// <inheritdoc />
+        [TracyProfiler.TracyAutowireIgnoreMethod]
         public override int GetHashCode()
         {
             unchecked

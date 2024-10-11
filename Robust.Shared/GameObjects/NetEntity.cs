@@ -12,6 +12,7 @@ namespace Robust.Shared.GameObjects;
 /// <summary>
 /// Network identifier for entities; used by client and server to refer to the same entity where their local <see cref="EntityUid"/> may differ.
 /// </summary>
+[TracyProfiler.TracyAutowireIgnoreClass]
 [Serializable, NetSerializable]
 public readonly struct NetEntity : IEquatable<NetEntity>, IComparable<NetEntity>, ISpanFormattable
 {

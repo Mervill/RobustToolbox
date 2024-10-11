@@ -7,6 +7,7 @@ using Robust.Shared.GameObjects;
 
 namespace Robust.Shared.Utility
 {
+    [TracyProfiler.TracyAutowireIgnoreClass]
     public static class DebugTools
     {
         /// <summary>
