@@ -7,3 +7,5 @@
 #if NET5_0_OR_GREATER
 [module: SkipLocalsInit]
 #endif
+
+[assembly: TracyProfiler.TracyAutowireAssemblyDefaults(color: 0x000099)]

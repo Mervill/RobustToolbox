@@ -163,7 +163,7 @@ namespace Robust.Server
         }
 
         /// <inheritdoc />
-        [TracyProfiler.TracyAutowireZoneOptions(color: 0x009900)]
+        [TracyProfiler.TracyAutowireZoneOptions(color: 0x005500)]
         public bool Start(ServerOptions options, Func<ILogHandler>? logHandlerFactory = null)
         {
             Options = options;

@@ -18,6 +18,8 @@ namespace Weavers
 
         const string ZoneOptionsAttributeName = "TracyAutowireZoneOptionsAttribute";
 
+        int AssemblyDefaultColor = 0;
+
         MethodReference IDisposableDisposeRef;
 
         MethodReference BeginZoneMethodRef;
@@ -81,6 +83,18 @@ namespace Weavers
             TypeDefinition profilerZoneType = robustTracyMainModule.GetType(TracyProfilerZoneFullName);
             TracyZoneTypeRef = ModuleDefinition.ImportReference(profilerZoneType);
 
+            var assemblyOptions = ModuleDefinition.Assembly.CustomAttributes.FirstOrDefault(x => x.AttributeType.Name == "TracyAutowireAssemblyDefaultsAttribute");
+            if (assemblyOptions != null)
+            {
+                /*WriteWarning("assemblyOptions:");
+                WriteWarning($"    {assemblyOptions.HasConstructorArguments}");
+                WriteWarning($"    {assemblyOptions.HasFields}");
+                WriteWarning($"    {assemblyOptions.HasProperties}");*/
+
+                AssemblyDefaultColor = (int)((uint)assemblyOptions.ConstructorArguments[0].Value);
+                WriteWarning($"AssemblyDefaultColor: {AssemblyDefaultColor}");
+            }
+
             // Execute the Weaver
 
             //ExternalTracyWeaver(); // not working!
@@ -132,7 +146,7 @@ namespace Weavers
             // it just accesses methodDef.Body without checking for null.
             if (methodDef.Body == null)
             {
-                //WriteWarning($"Rejecting {methodDef.FullName} because it has a null method body.");
+                WriteDebug($"Rejecting {methodDef.FullName} because it has a null method body.");
                 return;
             }
 
@@ -174,22 +188,20 @@ namespace Weavers
                 methodName = methodSplit[1];
             }
 
-            int zoneColor = 0;
+            int zoneColor = AssemblyDefaultColor;
 
-            //TracyAutowireZoneOptionsAttribute
             var zoneOptions = methodDef.CustomAttributes.FirstOrDefault(x => x.AttributeType.Name == ZoneOptionsAttributeName);
             if (zoneOptions != null)
             {
-                //zoneColor = (int)zoneOptions.Fields[0].Argument.Value;
-                WriteWarning("zoneOptions:");
-                WriteWarning($"    {zoneOptions.HasConstructorArguments}");
-                WriteWarning($"    {zoneOptions.HasFields}");
-                WriteWarning($"    {zoneOptions.HasProperties}");
+                //WriteWarning("zoneOptions:");
+                //WriteWarning($"    {zoneOptions.HasConstructorArguments}");
+                //WriteWarning($"    {zoneOptions.HasFields}");
+                //WriteWarning($"    {zoneOptions.HasProperties}");
 
-                foreach (var arg in zoneOptions.ConstructorArguments)
+                /*foreach (var arg in zoneOptions.ConstructorArguments)
                 {
                     WriteWarning($"        {arg.Value} ({arg.Value.GetType()})");
-                }
+                }*/
 
                 zoneColor = (int)((uint)zoneOptions.ConstructorArguments[0].Value);
             }
