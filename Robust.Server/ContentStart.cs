@@ -1,6 +1,6 @@
 namespace Robust.Server
 {
-    [TracyProfiler.TracyAutowireIgnore]
+    [Tracy.TracyAutowireIgnore]
     public static class ContentStart
     {
         public static void Start(string[] args)

@@ -1,6 +1,6 @@
 using System;
 
-namespace TracyProfiler;
+namespace Robust.Tracy;
 
 /// <summary>
 /// Supress generating a profiler zone for the annotated item. When used on a <see langword="class"/> or <see langword="struct"/> all functions inside that object are ignored.

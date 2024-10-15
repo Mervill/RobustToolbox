@@ -6,7 +6,7 @@ namespace Robust.Shared.Timing
     /// <summary>
     ///     Wraps a game tick value.
     /// </summary>
-    [TracyProfiler.TracyAutowireIgnore]
+    [Tracy.TracyAutowireIgnore]
     [Serializable, NetSerializable]
     public readonly struct GameTick : IEquatable<GameTick>, IComparable<GameTick>
     {

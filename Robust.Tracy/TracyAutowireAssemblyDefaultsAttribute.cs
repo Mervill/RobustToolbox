@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace TracyProfiler;
+namespace Robust.Tracy;
 
 [AttributeUsage(AttributeTargets.Assembly, AllowMultiple = false, Inherited = false)]
 public class TracyAutowireAssemblyDefaultsAttribute : Attribute

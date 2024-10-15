@@ -18,4 +18,4 @@
 [module: SkipLocalsInit]
 #endif
 
-[assembly: TracyProfiler.TracyAutowireAssemblyDefaults(color: 0x009900)]
+[assembly: Robust.Tracy.TracyAutowireAssemblyDefaults(color: 0x009900)]

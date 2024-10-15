@@ -12,7 +12,7 @@ namespace Robust.Shared.GameObjects
     ///     This type contains a network identification number of an entity.
     ///     This can be used by the EntityManager to access an entity
     /// </summary>
-    [TracyProfiler.TracyAutowireIgnore]
+    [Tracy.TracyAutowireIgnore]
     [CopyByRef]
     public readonly struct EntityUid : IEquatable<EntityUid>, IComparable<EntityUid>, ISpanFormattable
     {
