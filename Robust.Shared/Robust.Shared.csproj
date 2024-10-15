@@ -34,7 +34,6 @@
     <ProjectReference Include="..\NetSerializer\NetSerializer\NetSerializer.csproj" />
     <ProjectReference Include="..\Robust.Shared.Maths\Robust.Shared.Maths.csproj" />
     <ProjectReference Include="..\Robust.Tracy\Robust.Tracy.csproj" />
-    <ProjectReference Include="..\TracyProfiler\TracyProfiler.csproj" />
   </ItemGroup>
   <ItemGroup>
     <WeaverFiles Include="..\TracyWeaver\bin\$(Configuration)\TracyWeaver.dll" WeaverClassNames="ModuleWeaver" />

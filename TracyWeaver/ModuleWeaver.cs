@@ -7,8 +7,6 @@ using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
 
-using TracyProfiler;
-
 namespace Weavers
 {
     public class ModuleWeaver : BaseModuleWeaver
@@ -29,7 +27,7 @@ namespace Weavers
         readonly List<string> ClassAttributeIgnoreNames = new List<string>()
         {
             nameof(CompilerGeneratedAttribute),
-            nameof(TracyAutowireIgnoreAttribute),
+            "TracyAutowireIgnoreAttribute",
         };
 
         readonly List<string> MethodAttributeIgnoreNames = new List<string>()
@@ -38,7 +36,7 @@ namespace Weavers
             nameof(IteratorStateMachineAttribute), // No source location
             nameof(AsyncStateMachineAttribute), // No source location
             nameof(CompilerGeneratedAttribute),
-            nameof(TracyAutowireIgnoreAttribute),
+            "TracyAutowireIgnoreAttribute",
         };
 
         public override void Execute()
