@@ -86,6 +86,7 @@ public class Generator : IIncrementalGenerator
                     builder.AppendLine($$"""
 #nullable enable
 using System;
+using System.Runtime.CompilerServices;
 using Robust.Shared.Analyzers;
 using Robust.Shared.IoC;
 using Robust.Shared.GameObjects;
@@ -213,6 +214,7 @@ using Robust.Shared.Serialization.TypeSerializers.Interfaces;
              baseCopy = $$"""
                           /// <seealso cref="ISerializationManager.CopyTo"/>
                           [Obsolete("Use ISerializationManager.CopyTo instead")]
+                          [CompilerGenerated]
                           public override void Copy(ref {{baseName}} target, ISerializationManager serialization, SerializationHookContext hookCtx, ISerializationContext? context = null)
                           {
                               var cast = ({{definition.GenericTypeName}}) target;
@@ -222,6 +224,7 @@ using Robust.Shared.Serialization.TypeSerializers.Interfaces;
 
                           /// <seealso cref="ISerializationManager.CopyTo"/>
                           [Obsolete("Use ISerializationManager.CopyTo instead")]
+                          [CompilerGenerated]
                           public override void Copy(ref object target, ISerializationManager serialization, SerializationHookContext hookCtx, ISerializationContext? context = null)
                           {
                               var cast = ({{definition.GenericTypeName}}) target;
@@ -235,6 +238,7 @@ using Robust.Shared.Serialization.TypeSerializers.Interfaces;
             baseCopy = $$"""
                          /// <seealso cref="ISerializationManager.CopyTo"/>
                          [Obsolete("Use ISerializationManager.CopyTo instead")]
+                         [CompilerGenerated]
                          public {{modifiers}} void Copy(ref object target, ISerializationManager serialization, SerializationHookContext hookCtx, ISerializationContext? context = null)
                          {
                              var cast = ({{definition.GenericTypeName}}) target;
@@ -247,6 +251,7 @@ using Robust.Shared.Serialization.TypeSerializers.Interfaces;
         builder.AppendLine($$"""
                              /// <seealso cref="ISerializationManager.CopyTo"/>
                              [Obsolete("Use ISerializationManager.CopyTo instead")]
+                             [CompilerGenerated]
                              public {{modifiers}} void InternalCopy(ref {{definition.GenericTypeName}} target, ISerializationManager serialization, SerializationHookContext hookCtx, ISerializationContext? context = null)
                              {
                                 {{baseCall}}
@@ -255,6 +260,7 @@ using Robust.Shared.Serialization.TypeSerializers.Interfaces;
 
                              /// <seealso cref="ISerializationManager.CopyTo"/>
                              [Obsolete("Use ISerializationManager.CopyTo instead")]
+                             [CompilerGenerated]
                              public {{modifiers}} void Copy(ref {{definition.GenericTypeName}} target, ISerializationManager serialization, SerializationHookContext hookCtx, ISerializationContext? context = null)
                              {
                                  InternalCopy(ref target, serialization, hookCtx, context);
@@ -273,6 +279,7 @@ using Robust.Shared.Serialization.TypeSerializers.Interfaces;
             builder.AppendLine($$"""
                                  /// <seealso cref="ISerializationManager.CopyTo"/>
                                  [Obsolete("Use ISerializationManager.CopyTo instead")]
+                                 [CompilerGenerated]
                                  public {{interfaceModifiers}} void InternalCopy(ref {{interfaceName}} target, ISerializationManager serialization, SerializationHookContext hookCtx, ISerializationContext? context = null)
                                  {
                                      var def = ({{definition.GenericTypeName}}) target;
@@ -282,6 +289,7 @@ using Robust.Shared.Serialization.TypeSerializers.Interfaces;
 
                                  /// <seealso cref="ISerializationManager.CopyTo"/>
                                  [Obsolete("Use ISerializationManager.CopyTo instead")]
+                                 [CompilerGenerated]
                                  public {{interfaceModifiers}} void Copy(ref {{interfaceName}} target, ISerializationManager serialization, SerializationHookContext hookCtx, ISerializationContext? context = null)
                                  {
                                      InternalCopy(ref target, serialization, hookCtx, context);
@@ -308,6 +316,7 @@ using Robust.Shared.Serialization.TypeSerializers.Interfaces;
             builder.AppendLine($$"""
                                  /// <seealso cref="ISerializationManager.CreateCopy"/>
                                  [Obsolete("Use ISerializationManager.CreateCopy instead")]
+                                 [CompilerGenerated]
                                  public {{modifiers}} {{definition.GenericTypeName}} Instantiate()
                                  {
                                      throw new NotImplementedException();
@@ -319,6 +328,7 @@ using Robust.Shared.Serialization.TypeSerializers.Interfaces;
             builder.AppendLine($$"""
                                  /// <seealso cref="ISerializationManager.CreateCopy"/>
                                  [Obsolete("Use ISerializationManager.CreateCopy instead")]
+                                 [CompilerGenerated]
                                  public {{modifiers}} {{definition.GenericTypeName}} Instantiate()
                                  {
                                      return new {{definition.GenericTypeName}}();
@@ -330,11 +340,13 @@ using Robust.Shared.Serialization.TypeSerializers.Interfaces;
         {
             var interfaceName = @interface.ToDisplayString();
             builder.AppendLine($$"""
+                                 [CompilerGenerated]
                                  {{interfaceName}} {{interfaceName}}.Instantiate()
                                  {
                                      return Instantiate();
                                  }
 
+                                 [CompilerGenerated]
                                  {{interfaceName}} ISerializationGenerated<{{interfaceName}}>.Instantiate()
                                  {
                                      return Instantiate();
