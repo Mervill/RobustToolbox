@@ -11,10 +11,12 @@ namespace Weavers
 {
     public class ModuleWeaver : BaseModuleWeaver
     {
+        const string TracyProfilerNamespace = "Robust.Tracy";
         const string TracyProfilerFullName = "Robust.Tracy.TracyProfiler";
         const string TracyProfilerZoneFullName = "Robust.Tracy.TracyZone";
 
         const string ZoneOptionsAttributeName = "TracyAutowireZoneOptionsAttribute";
+        const string AssemblyZoneOptionsAttribute = "TracyAutowireAssemblyDefaultsAttribute";
 
         int AssemblyDefaultColor = 0;
 
@@ -56,18 +58,12 @@ namespace Weavers
             // Get references
 
             IDisposableDisposeRef = ModuleDefinition.ImportReference(typeof(IDisposable).GetMethod("Dispose"));
-
+            
             IAssemblyResolver currentAssemblyResolver = ModuleDefinition.AssemblyResolver;
-            AssemblyNameReference robustTracyNameReference = ModuleDefinition.AssemblyReferences.FirstOrDefault(x => x.Name == "Robust.Tracy");
-
-            /*foreach (var assem in ModuleDefinition.AssemblyReferences)
-            {
-                WriteWarning($"---- {assem.Name}");
-            }*/
-
+            AssemblyNameReference robustTracyNameReference = ModuleDefinition.AssemblyReferences.FirstOrDefault(x => x.Name == TracyProfilerNamespace);
             if (robustTracyNameReference == null)
             {
-                WriteError($"ModuleDefinition does not contain a reference to `Robust.Tracy`!");
+                WriteError($"ModuleDefinition does not contain a reference to `{TracyProfilerNamespace}`!");
                 return;
             }
 
@@ -81,17 +77,7 @@ namespace Weavers
             TypeDefinition profilerZoneType = robustTracyMainModule.GetType(TracyProfilerZoneFullName);
             TracyZoneTypeRef = ModuleDefinition.ImportReference(profilerZoneType);
 
-            var assemblyOptions = ModuleDefinition.Assembly.CustomAttributes.FirstOrDefault(x => x.AttributeType.Name == "TracyAutowireAssemblyDefaultsAttribute");
-            if (assemblyOptions != null)
-            {
-                /*WriteWarning("assemblyOptions:");
-                WriteWarning($"    {assemblyOptions.HasConstructorArguments}");
-                WriteWarning($"    {assemblyOptions.HasFields}");
-                WriteWarning($"    {assemblyOptions.HasProperties}");*/
-
-                AssemblyDefaultColor = (int)((uint)assemblyOptions.ConstructorArguments[0].Value);
-                WriteWarning($"AssemblyDefaultColor: {AssemblyDefaultColor}");
-            }
+            TryGetAssemblyZoneOptions(ModuleDefinition.Assembly, out AssemblyDefaultColor);
 
             // Execute the Weaver
 
@@ -109,10 +95,10 @@ namespace Weavers
                 if (!typeDef.IsClass)
                     continue;
 
-                if (typeDef.Name.StartsWith("Tracy"))
+                if (typeDef.Namespace == TracyProfilerNamespace)
                     continue;
 
-                if (typeDef.CustomAttributes.Any(x => ClassAttributeIgnoreNames.Contains(x.AttributeType.Name)))
+                if (typeDef.CustomAttributes.Any(attr => ClassAttributeIgnoreNames.Contains(attr.AttributeType.Name)))
                     continue;
 
                 foreach (var methodDef in typeDef.Methods)
@@ -130,7 +116,7 @@ namespace Weavers
                     if (methodDef.IsSpecialName)
                         continue;
 
-                    if (methodDef.CustomAttributes.Any(x => MethodAttributeIgnoreNames.Contains(x.AttributeType.Name)))
+                    if (methodDef.CustomAttributes.Any(attr => MethodAttributeIgnoreNames.Contains(attr.AttributeType.Name)))
                         continue;
 
                     AddTracyZone(typeDef, methodDef);
@@ -140,8 +126,6 @@ namespace Weavers
 
         private void AddTracyZone(TypeDefinition parentTypeDef, MethodDefinition methodDef)
         {
-            // This check needs to happen here or else GetSequencePoint() will throw because
-            // it just accesses methodDef.Body without checking for null.
             if (methodDef.Body == null)
             {
                 WriteDebug($"Rejecting {methodDef.FullName} because it has a null method body.");
@@ -150,7 +134,7 @@ namespace Weavers
 
             var methodLineNumber = 0;
             var methodFilename = "NoSource";
-            var methodSequencePoint = methodDef.GetSequencePoint();
+            var methodSequencePoint = methodDef.DebugInformation.SequencePoints.FirstOrDefault(sp => !sp.IsHidden);
             if (methodSequencePoint != null)
             {
                 methodLineNumber = methodSequencePoint.StartLine;
@@ -158,12 +142,12 @@ namespace Weavers
             }
             else
             {
-                WriteWarning($"Rejecting {methodDef.FullName} because it has no sequence point (likely compiler generated method).");
+                WriteDebug($"Rejecting {methodDef.FullName} because it has no sequence point (likely compiler generated method).");
                 return;
             }
 
             var methodName = methodDef.FullName;
-
+            
             /*{
                 var methodSplit = methodName.Split(' ');
                 var returnName = methodSplit[0];
@@ -186,26 +170,21 @@ namespace Weavers
                 methodName = methodSplit[1];
             }
 
-            int zoneColor = AssemblyDefaultColor;
-
-            var zoneOptions = methodDef.CustomAttributes.FirstOrDefault(x => x.AttributeType.Name == ZoneOptionsAttributeName);
-            if (zoneOptions != null)
+            if(!TryGetMethodZoneOptions(methodDef, out int zoneColor))
             {
-                //WriteWarning("zoneOptions:");
-                //WriteWarning($"    {zoneOptions.HasConstructorArguments}");
-                //WriteWarning($"    {zoneOptions.HasFields}");
-                //WriteWarning($"    {zoneOptions.HasProperties}");
-
-                /*foreach (var arg in zoneOptions.ConstructorArguments)
-                {
-                    WriteWarning($"        {arg.Value} ({arg.Value.GetType()})");
-                }*/
-
-                zoneColor = (int)((uint)zoneOptions.ConstructorArguments[0].Value);
+                zoneColor = AssemblyDefaultColor;
             }
 
             var methodBody = methodDef.Body;
             var instructions = methodBody.Instructions;
+
+            // In debug mode an empty method cotains two instructions - a NOP and 
+            // a RET. In release mode there is simply a RET instruction.
+            if (instructions.Count <= 2)
+            {
+                WriteDebug($"Rejecting {methodDef.FullName} because it is too short (likely empty method).");
+                return;
+            }
 
             var originalLastIndex = instructions.Count - 1;
             var originalReturnInstruction = instructions[originalLastIndex];
@@ -224,6 +203,15 @@ namespace Weavers
 
             // we need a variable to hold the TracyZone
             var vardefTracyZone = new VariableDefinition(TracyZoneTypeRef);
+
+            // if there are no other variables in this method we need to explicitly set
+            // InitLocals to true otherwise ILVerify will be upset with us.
+            if (methodBody.Variables.Count == 0)
+            {
+                methodBody.InitLocals = true;
+            }
+
+            // actually add the variable
             methodBody.Variables.Add(vardefTracyZone);
 
             // == prologue
@@ -244,7 +232,7 @@ namespace Weavers
                 Instruction.Create(OpCodes.Ldstr, methodFilename),
                 // memberName
                 Instruction.Create(OpCodes.Ldstr, methodName),
-                // call Robust.Shared.Profiling.TracyProfiler.BeginZone
+                // call Robust.Tracy.TracyProfiler.BeginZone
                 Instruction.Create(OpCodes.Call, BeginZoneMethodRef),
                 // store
                 Instruction.Create(OpCodes.Stloc, vardefTracyZone),
@@ -318,12 +306,41 @@ namespace Weavers
 
             //methodBody.ExceptionHandlers.Add(handler);
 
-            methodBody.Optimize();
+            //methodBody.Optimize();
         }
 
-        private void GetModuleZoneOptions(MethodDefinition methodDef)
+        private bool TryGetAssemblyZoneOptions(AssemblyDefinition assemDef, out int zoneColor)
         {
-            
+            zoneColor = 0;
+            var assemblyOptions = assemDef.CustomAttributes.FirstOrDefault(x => x.AttributeType.Name == AssemblyZoneOptionsAttribute);
+            if (assemblyOptions != null)
+            {
+                /*WriteWarning("assemblyOptions:");
+                WriteWarning($"    {assemblyOptions.HasConstructorArguments}");
+                WriteWarning($"    {assemblyOptions.HasFields}");
+                WriteWarning($"    {assemblyOptions.HasProperties}");*/
+
+                zoneColor = (int)((uint)assemblyOptions.ConstructorArguments[0].Value);
+                return true;
+            }
+            return false;
+        }
+
+        private bool TryGetMethodZoneOptions(MethodDefinition methodDef, out int zoneColor)
+        {
+            zoneColor = 0;
+            var zoneOptions = methodDef.CustomAttributes.FirstOrDefault(x => x.AttributeType.Name == ZoneOptionsAttributeName);
+            if (zoneOptions != null)
+            {
+                //WriteWarning("zoneOptions:");
+                //WriteWarning($"    {zoneOptions.HasConstructorArguments}");
+                //WriteWarning($"    {zoneOptions.HasFields}");
+                //WriteWarning($"    {zoneOptions.HasProperties}");
+
+                zoneColor = (int)((uint)zoneOptions.ConstructorArguments[0].Value);
+                return true;
+            }
+            return false;
         }
 
         // external weave: try to find every CALL instruction and wrap it in profiler hooks
