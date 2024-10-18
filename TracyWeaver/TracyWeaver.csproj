@@ -10,8 +10,4 @@
     <PackageReference Include="FodyHelpers" Version="6.8.2" />
   </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\TracyProfiler\TracyProfiler.csproj" />
-  </ItemGroup>
-
 </Project>
