@@ -10,6 +10,7 @@ namespace Robust.Shared.Utility
     /// to increase the size of the stack.
     /// </summary>
     /// <typeparam name="T">The type of elements in the stack.</typeparam>
+    [Tracy.TracyAutowireIgnore]
     internal ref struct GrowableStack<T> where T : unmanaged
     {
         private Span<T> _stack;
