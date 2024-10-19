@@ -3,7 +3,7 @@ using System.Runtime.CompilerServices;
 namespace Robust.Tracy;
 
 /// <summary>
-/// Holds data retruned by the <c>Caller</c> attributes.
+/// Holds data set by the <c>Caller</c> attributes.
 /// </summary>
 /// <param name="MemberName">Value of <seealso cref="CallerMemberNameAttribute"/></param>
 /// <param name="FilePath">Value of <seealso cref="CallerFilePathAttribute"/></param>
